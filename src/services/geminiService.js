@@ -108,4 +108,4 @@ function extractJsonFromText(text) {
   return text.trim();
 }
 
-module.exports = { extractPaymentInfo };
+module.exports = { extractPaymentInfo, EXTRACTION_PROMPT };

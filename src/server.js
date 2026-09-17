@@ -6,6 +6,7 @@ const path = require('path');
 const customersRouter = require('./routes/customers');
 const transactionsRouter = require('./routes/transactions');
 const paymentOrdersRouter = require('./routes/paymentOrders');
+const warehouseSlipRouter = require('./routes/warehouseSlipRoutes');
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/customers', customersRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/payment-orders', paymentOrdersRouter);
+app.use('/api/warehouse-slips', warehouseSlipRouter);
 
 // Xử lý lỗi chung
 app.use((err, req, res, next) => {

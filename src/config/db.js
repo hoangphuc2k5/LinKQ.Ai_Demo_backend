@@ -74,6 +74,48 @@ async function initializeDatabase() {
       "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       "UpdatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS "WarehouseSlips" (
+      "WarehouseSlipId" SERIAL PRIMARY KEY,
+      "OriginalFileName" VARCHAR(255),
+      "RawExtractedJson" TEXT,
+      "KyHieu" VARCHAR(100),
+      "NgayLap" DATE,
+      "NhaCungCapTen" VARCHAR(255),
+      "NhaCungCapMaSoThue" VARCHAR(50),
+      "NhaCungCapSoTaiKhoan" VARCHAR(100),
+      "NhaCungCapNganHang" VARCHAR(255),
+      "NhaCungCapDiaChi" VARCHAR(500),
+      "NhaCungCapHotline" VARCHAR(50),
+      "NhanVienBanHangTen" VARCHAR(200),
+      "NhanVienBanHangSdt" VARCHAR(50),
+      "SoPo" VARCHAR(100),
+      "KhachHangTen" VARCHAR(255),
+      "KhachHangDiaChi" VARCHAR(500),
+      "DiaChiGiaoHang" VARCHAR(500),
+      "DiaChiGiaoHangSdt" VARCHAR(50),
+      "GhiChu" VARCHAR(1000),
+      "CongTienHang" NUMERIC(18, 2),
+      "ChietKhau" NUMERIC(18, 2),
+      "ThueSuatGtgt" VARCHAR(50),
+      "TienThueGtgt" NUMERIC(18, 2),
+      "TongTienThanhToan" NUMERIC(18, 2),
+      "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS "WarehouseSlipItems" (
+      "WarehouseSlipItemId" SERIAL PRIMARY KEY,
+      "WarehouseSlipId" INTEGER NOT NULL REFERENCES "WarehouseSlips"("WarehouseSlipId") ON DELETE CASCADE,
+      "Stt" INTEGER,
+      "MaSo" VARCHAR(100),
+      "TenSanPham" VARCHAR(500) NOT NULL,
+      "Dvt" VARCHAR(50),
+      "Sl" NUMERIC(18, 3),
+      "DonGia" NUMERIC(18, 2),
+      "ThanhTien" NUMERIC(18, 2),
+      "LoLot" VARCHAR(100),
+      "KhuyenMai" BOOLEAN NOT NULL DEFAULT FALSE
+    );
   `);
 }
 
