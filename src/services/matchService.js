@@ -1,4 +1,4 @@
-const { getPool, sql } = require('../config/db');
+const { getPool } = require('../config/db');
 
 /**
  * Chuẩn hoá số tài khoản: chỉ giữ chữ số
@@ -51,11 +51,11 @@ function nameSimilarityScore(a, b) {
  */
 async function matchCustomer(extracted) {
   const pool = await getPool();
-  const result = await pool.request().query(
-    `SELECT CustomerId, FullName, Phone, Email, BankAccountNumber, BankName, AccountHolderName
-     FROM dbo.Customers`
+  const result = await pool.query(
+    `SELECT "CustomerId", "FullName", "Phone", "Email", "BankAccountNumber", "BankName", "AccountHolderName"
+     FROM "Customers"`
   );
-  const customers = result.recordset;
+  const customers = result.rows;
 
   // Khách hàng trong hệ thống là người nhận tiền, không phải người chuyển.
   const receiverAccount = normalizeAccountNumber(extracted.receiverAccountNumber);
