@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI · Backend</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --bg: #0b0d10;
+    --panel: #101317;
+    --border: #23282f;
+    --text: #d7dbe0;
+    --muted: #7d8590;
+    --accent: #3fb950;
+    --accent-dim: rgba(63,185,80,.12);
+    --get: #58a6ff;
+    --font: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  html, body{ height: 100%; }
+  body{
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(63,185,80,.06), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    padding: 24px;
+  }
+
+  main{
+    width: min(620px, 100%);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  }
+
+  .titlebar{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #0d1013;
+  }
+  .dot{ width: 10px; height: 10px; border-radius: 50%; background: #2b3038; }
+  .titlebar span{
+    margin-left: 8px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .content{ padding: 28px 28px 24px; }
+
+  .status-line{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .pulse{
+    position: relative;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+  }
+  .pulse::after{
+    content: "";
+    position: absolute; inset: -6px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: .35;
+    animation: ping 2s ease-out infinite;
+  }
+  @keyframes ping{
+    0%{ transform: scale(.6); opacity: .45; }
+    70%{ transform: scale(2.1); opacity: 0; }
+    100%{ opacity: 0; }
+  }
+  .status-line p{
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--accent);
+  }
+
+  h1{
+    margin: 0 0 6px;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: #f0f2f4;
+  }
+  .sub{
+    margin: 0 0 26px;
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  table{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  tr{ border-top: 1px solid var(--border); }
+  tr:first-child{ border-top: none; }
+  td{ padding: 12px 4px; vertical-align: middle; }
+
+  .method{
+    display: inline-block;
+    min-width: 42px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    color: var(--get);
+    background: rgba(88,166,255,.1);
+    border: 1px solid rgba(88,166,255,.25);
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+  .path{ color: var(--text); padding-left: 12px; }
+  .desc{
+    text-align: right;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  footer{
+    padding: 14px 28px;
+    border-top: 1px solid var(--border);
+    font-size: 11.5px;
+    color: #4b525c;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .pulse::after{ animation: none; }
+  }
+</style>
+</head>
+<body>
+  <main>
+    <div class="titlebar">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <span>AI — Backend</span>
+    </div>
+
+    <div class="content">
+      <div class="status-line">
+        <span class="pulse"></span>
+        <p>Đang chạy</p>
+      </div>
+
+      <h1>Payment Matching AI</h1>
+      <p class="sub">API nội bộ phục vụ đối soát giao dịch và khớp lệnh thanh toán với khách hàng.</p>
+
+      <table>
+        <tr>
+          <td><span class="method">GET</span></td>
+          <td class="path">/api/health</td>
+          <td class="desc">Kiểm tra trạng thái</td>
+        </tr>
+        <tr>
+          <td><span class="method">GET</span></td>
+          <td class="path">/api/customers</td>
+          <td class="desc">Khách hàng</td>
+        </tr>
+        <tr>
+          <td><span class="method">GET</span></td>
+          <td class="path">/api/transactions</td>
+          <td class="desc">Giao dịch</td>
+        </tr>
+        <tr>
+          <td><span class="method">GET</span></td>
+          <td class="path">/api/payment-orders</td>
+          <td class="desc">Đơn thanh toán</td>
+        </tr>
+      </table>
+    </div>
+
+    <footer>Không có giao diện người dùng tại địa chỉ này — chỉ phục vụ API.</footer>
+  </main>
+</body>
+</html>
