@@ -1,4 +1,5 @@
 const { getPool } = require('../config/db');
+const PaymentOrder = require('../models/paymentOrderModel');
 
 class PaymentOrderRepository {
   async findAll(customerId = null) {
@@ -12,7 +13,7 @@ class PaymentOrderRepository {
       ${customerId ? 'WHERE o."CustomerId" = $1' : ''}
       ORDER BY o."CreatedAt" DESC
     `, customerId ? [customerId] : []);
-    return result.rows;
+    return result.rows.map(PaymentOrder.fromRow);
   }
 
   async create(input) {
@@ -24,7 +25,7 @@ class PaymentOrderRepository {
       RETURNING *
     `, [input.customerId, input.paymentCode, input.amount, input.currency || 'VND',
       input.description || null, input.dueDate || null]);
-    return result.rows[0];
+    return PaymentOrder.fromRow(result.rows[0]);
   }
 
   async updateStatus(orderId, status) {
@@ -35,7 +36,7 @@ class PaymentOrderRepository {
       WHERE "PaymentOrderId" = $2
       RETURNING *
     `, [status, orderId]);
-    return result.rows[0] || null;
+    return PaymentOrder.fromRow(result.rows[0]);
   }
 
   async settle(orderId, transactionId) {
@@ -46,7 +47,7 @@ class PaymentOrderRepository {
       WHERE "PaymentOrderId" = $2 AND "Status" = 'PENDING'
       RETURNING *
     `, [transactionId, orderId]);
-    return result.rows[0] || null;
+    return PaymentOrder.fromRow(result.rows[0]);
   }
 }
 

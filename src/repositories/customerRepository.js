@@ -1,16 +1,17 @@
 const { getPool } = require('../config/db');
+const Customer = require('../models/customerModel');
 
 class CustomerRepository {
   async findAll() {
     const pool = await getPool();
     const result = await pool.query('SELECT * FROM "Customers" ORDER BY "CreatedAt" DESC');
-    return result.rows;
+    return result.rows.map(Customer.fromRow);
   }
 
   async findById(customerId) {
     const pool = await getPool();
     const result = await pool.query('SELECT * FROM "Customers" WHERE "CustomerId" = $1', [customerId]);
-    return result.rows[0] || null;
+    return Customer.fromRow(result.rows[0]);
   }
 
   async create(input) {
@@ -23,7 +24,7 @@ class CustomerRepository {
     `, [input.fullName, input.phone || null, input.email || null,
       input.bankAccountNumber || null, input.bankName || null,
       input.accountHolderName || null, input.note || null]);
-    return result.rows[0];
+    return Customer.fromRow(result.rows[0]);
   }
 
   async update(customerId, input) {
@@ -38,7 +39,7 @@ class CustomerRepository {
     `, [input.fullName, input.phone || null, input.email || null,
       input.bankAccountNumber || null, input.bankName || null,
       input.accountHolderName || null, input.note || null, customerId]);
-    return result.rows[0] || null;
+    return Customer.fromRow(result.rows[0]);
   }
 
   async delete(customerId) {

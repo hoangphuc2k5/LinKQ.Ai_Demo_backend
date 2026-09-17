@@ -1,4 +1,5 @@
 const { getPool } = require('../config/db');
+const Transaction = require('../models/transactionModel');
 
 class TransactionRepository {
   async create(data) {
@@ -16,7 +17,7 @@ class TransactionRepository {
       data.amount || null, data.currency || 'VND', data.transactionCode || null,
       data.transactionDate || null, data.content || null,
       data.matchedCustomerId || null, data.matchConfidence || 0, data.matchStatus]);
-    return result.rows[0];
+    return Transaction.fromRow(result.rows[0]);
   }
 
   async findAll() {
@@ -27,7 +28,7 @@ class TransactionRepository {
       LEFT JOIN "Customers" c ON c."CustomerId" = t."MatchedCustomerId"
       ORDER BY t."CreatedAt" DESC
     `);
-    return result.rows;
+    return result.rows.map(Transaction.fromRow);
   }
 
   async findById(transactionId) {
@@ -38,7 +39,7 @@ class TransactionRepository {
       LEFT JOIN "Customers" c ON c."CustomerId" = t."MatchedCustomerId"
       WHERE t."TransactionId" = $1
     `, [transactionId]);
-    return result.rows[0] || null;
+    return Transaction.fromRow(result.rows[0]);
   }
 
   async confirmCustomer(transactionId, customerId) {
@@ -50,7 +51,7 @@ class TransactionRepository {
       WHERE "TransactionId" = $2
       RETURNING *
     `, [customerId, transactionId]);
-    return result.rows[0] || null;
+    return Transaction.fromRow(result.rows[0]);
   }
 }
 
