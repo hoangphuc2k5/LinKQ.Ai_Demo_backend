@@ -1,95 +1,65 @@
-const { getPool, sql } = require('../config/db');
+const { getPool } = require('../config/db');
 
 class CustomerRepository {
   async findAll() {
     const pool = await getPool();
-    const result = await pool.request().query(
-      'SELECT * FROM dbo.Customers ORDER BY CreatedAt DESC'
-    );
-    return result.recordset;
+    const result = await pool.query('SELECT * FROM "Customers" ORDER BY "CreatedAt" DESC');
+    return result.rows;
   }
 
   async findById(customerId) {
     const pool = await getPool();
-    const result = await pool.request()
-      .input('CustomerId', sql.Int, customerId)
-      .query('SELECT * FROM dbo.Customers WHERE CustomerId = @CustomerId');
-    return result.recordset[0] || null;
+    const result = await pool.query('SELECT * FROM "Customers" WHERE "CustomerId" = $1', [customerId]);
+    return result.rows[0] || null;
   }
 
   async create(input) {
     const pool = await getPool();
-    const result = await pool.request()
-      .input('FullName', sql.NVarChar(200), input.fullName)
-      .input('Phone', sql.NVarChar(20), input.phone || null)
-      .input('Email', sql.NVarChar(200), input.email || null)
-      .input('BankAccountNumber', sql.NVarChar(50), input.bankAccountNumber || null)
-      .input('BankName', sql.NVarChar(200), input.bankName || null)
-      .input('AccountHolderName', sql.NVarChar(200), input.accountHolderName || null)
-      .input('Note', sql.NVarChar(500), input.note || null)
-      .query(`
-        INSERT INTO dbo.Customers
-          (FullName, Phone, Email, BankAccountNumber, BankName, AccountHolderName, Note)
-        OUTPUT INSERTED.*
-        VALUES (@FullName, @Phone, @Email, @BankAccountNumber, @BankName, @AccountHolderName, @Note)
-      `);
-    return result.recordset[0];
+    const result = await pool.query(`
+      INSERT INTO "Customers"
+        ("FullName", "Phone", "Email", "BankAccountNumber", "BankName", "AccountHolderName", "Note")
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `, [input.fullName, input.phone || null, input.email || null,
+      input.bankAccountNumber || null, input.bankName || null,
+      input.accountHolderName || null, input.note || null]);
+    return result.rows[0];
   }
 
   async update(customerId, input) {
     const pool = await getPool();
-    const result = await pool.request()
-      .input('CustomerId', sql.Int, customerId)
-      .input('FullName', sql.NVarChar(200), input.fullName)
-      .input('Phone', sql.NVarChar(20), input.phone || null)
-      .input('Email', sql.NVarChar(200), input.email || null)
-      .input('BankAccountNumber', sql.NVarChar(50), input.bankAccountNumber || null)
-      .input('BankName', sql.NVarChar(200), input.bankName || null)
-      .input('AccountHolderName', sql.NVarChar(200), input.accountHolderName || null)
-      .input('Note', sql.NVarChar(500), input.note || null)
-      .query(`
-        UPDATE dbo.Customers SET
-          FullName = @FullName,
-          Phone = @Phone,
-          Email = @Email,
-          BankAccountNumber = @BankAccountNumber,
-          BankName = @BankName,
-          AccountHolderName = @AccountHolderName,
-          Note = @Note,
-          UpdatedAt = SYSUTCDATETIME()
-        OUTPUT INSERTED.*
-        WHERE CustomerId = @CustomerId
-      `);
-    return result.recordset[0] || null;
+    const result = await pool.query(`
+      UPDATE "Customers" SET
+        "FullName" = $1, "Phone" = $2, "Email" = $3,
+        "BankAccountNumber" = $4, "BankName" = $5,
+        "AccountHolderName" = $6, "Note" = $7, "UpdatedAt" = NOW()
+      WHERE "CustomerId" = $8
+      RETURNING *
+    `, [input.fullName, input.phone || null, input.email || null,
+      input.bankAccountNumber || null, input.bankName || null,
+      input.accountHolderName || null, input.note || null, customerId]);
+    return result.rows[0] || null;
   }
 
   async delete(customerId) {
     const pool = await getPool();
-    const transaction = new sql.Transaction(pool);
-
+    const client = await pool.connect();
     try {
-      await transaction.begin();
-
-      await new sql.Request(transaction)
-        .input('CustomerId', sql.Int, customerId)
-        .query(`
-          UPDATE dbo.Transactions
-          SET MatchedCustomerId = NULL,
-              MatchStatus = N'NEEDS_REVIEW',
-              Status = N'NEW',
-              UpdatedAt = SYSUTCDATETIME()
-          WHERE MatchedCustomerId = @CustomerId
-        `);
-
-      const result = await new sql.Request(transaction)
-        .input('CustomerId', sql.Int, customerId)
-        .query('DELETE FROM dbo.Customers WHERE CustomerId = @CustomerId');
-
-      await transaction.commit();
-      return result.rowsAffected[0] > 0;
+      await client.query('BEGIN');
+      await client.query(`
+        UPDATE "Transactions"
+        SET "MatchedCustomerId" = NULL, "MatchStatus" = 'NEEDS_REVIEW',
+            "Status" = 'NEW', "UpdatedAt" = NOW()
+        WHERE "MatchedCustomerId" = $1
+      `, [customerId]);
+      const result = await client.query('DELETE FROM "Customers" WHERE "CustomerId" = $1', [customerId]);
+      await client.query('COMMIT');
+      return result.rowCount > 0;
     } catch (error) {
-      await transaction.rollback();
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   }
 }
