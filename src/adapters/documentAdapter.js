@@ -2,6 +2,7 @@ const path = require('path');
 const { Worker } = require('worker_threads');
 
 let markItDownPromise;
+let pdfRuntimePromise;
 
 const MIME_EXTENSION_MAP = {
   'application/pdf': '.pdf',
@@ -23,9 +24,22 @@ const LIBARCHIVE_EXTENSIONS = new Set(['.rar', '.7z', '.tar', '.tar.gz', '.tgz',
 
 async function getMarkItDown() {
   if (!markItDownPromise) {
-    markItDownPromise = import('markitdown-ts').then(({ MarkItDown }) => new MarkItDown());
+    markItDownPromise = ensurePdfRuntime()
+      .then(() => import('markitdown-ts'))
+      .then(({ MarkItDown }) => new MarkItDown());
   }
   return markItDownPromise;
+}
+
+async function ensurePdfRuntime() {
+  if (!pdfRuntimePromise) {
+    pdfRuntimePromise = import('@napi-rs/canvas').then((canvas) => {
+      if (typeof globalThis.DOMMatrix === 'undefined') globalThis.DOMMatrix = canvas.DOMMatrix;
+      if (typeof globalThis.Path2D === 'undefined') globalThis.Path2D = canvas.Path2D;
+      if (typeof globalThis.ImageData === 'undefined') globalThis.ImageData = canvas.ImageData;
+    });
+  }
+  return pdfRuntimePromise;
 }
 
 async function getImageModel() {
