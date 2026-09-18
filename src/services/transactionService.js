@@ -1,10 +1,18 @@
 const { extractPaymentInfo } = require('./geminiService');
+const documentAdapter = require('../adapters/documentAdapter');
 const { matchCustomer } = require('./matchService');
 const transactionRepository = require('../repositories/transactionRepository');
 
 class TransactionService {
   async analyze(file) {
-    const { parsed, raw } = await extractPaymentInfo(file.buffer, file.mimetype);
+    const document = await documentAdapter.convertToMarkdown(file);
+    const { parsed, raw } = await extractPaymentInfo(document);
+    if (!hasTransactionValue(parsed)) {
+      const error = new Error('Không có giá trị dữ liệu để phân tích giao dịch');
+      error.statusCode = 422;
+      throw error;
+    }
+
     const matchResult = await matchCustomer(parsed);
     const matchStatus = matchResult.customer
       ? 'MATCHED'
@@ -50,6 +58,26 @@ class TransactionService {
     error.statusCode = 404;
     return error;
   }
+}
+
+function hasTransactionValue(parsed) {
+  const fields = [
+    'bankName',
+    'senderBankName',
+    'receiverBankName',
+    'senderAccountNumber',
+    'senderAccountName',
+    'receiverAccountNumber',
+    'receiverAccountName',
+    'amount',
+    'currency',
+    'transactionCode',
+    'transactionDate',
+    'content',
+  ];
+  return fields.some((field) => parsed?.[field] !== null
+    && parsed?.[field] !== undefined
+    && String(parsed[field]).trim() !== '');
 }
 
 module.exports = new TransactionService();

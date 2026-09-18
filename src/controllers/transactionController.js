@@ -9,7 +9,7 @@ class TransactionController {
   analyze = async (req, res, next) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ error: 'Vui lòng tải lên 1 file ảnh (field "file")' });
+        return res.status(400).json({ error: 'Vui lòng tải lên 1 tài liệu (field "file")' });
       }
       res.status(201).json(await transactionService.analyze(new AnalyzeTransactionDto(req.file)));
     } catch (error) {

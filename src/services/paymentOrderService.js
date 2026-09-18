@@ -22,13 +22,27 @@ class PaymentOrderService {
       error.statusCode = 404;
       throw error;
     }
+    if (await paymentOrderRepository.findByPaymentCode(paymentCode)) {
+      const error = new Error(`Mã thanh toán "${paymentCode}" đã tồn tại`);
+      error.statusCode = 409;
+      throw error;
+    }
     const dueDate = input.dueDate ? new Date(input.dueDate) : null;
     if (dueDate && Number.isNaN(dueDate.getTime())) {
       const error = new Error('dueDate không hợp lệ');
       error.statusCode = 400;
       throw error;
     }
-    return paymentOrderRepository.create({ ...input, paymentCode, customerId, amount, dueDate });
+    try {
+      return await paymentOrderRepository.create({ ...input, paymentCode, customerId, amount, dueDate });
+    } catch (cause) {
+      if (cause.code === '23505' && cause.constraint === 'PaymentOrders_PaymentCode_key') {
+        const error = new Error(`Mã thanh toán "${paymentCode}" đã tồn tại`);
+        error.statusCode = 409;
+        throw error;
+      }
+      throw cause;
+    }
   }
 
   async updateStatus(orderId, status) {

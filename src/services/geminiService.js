@@ -4,9 +4,10 @@ require('dotenv').config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const EXTRACTION_PROMPT = `
-Bạn là trợ lý trích xuất dữ liệu từ ảnh chụp giao dịch/chuyển khoản ngân hàng (biên lai, thông báo biến động số dư, sao kê...).
+Bạn là trợ lý trích xuất dữ liệu từ tài liệu giao dịch/chuyển khoản ngân hàng (biên lai, thông báo biến động số dư, sao kê...).
+Đầu vào có thể là ảnh gốc hoặc nội dung Markdown đã được chuyển đổi từ tài liệu.
 
-Hãy đọc ảnh và trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdown, không giải thích thêm), theo đúng cấu trúc sau:
+Hãy đọc đầu vào và trả về DUY NHẤT một đối tượng JSON hợp lệ (không kèm markdown, không giải thích thêm), theo đúng cấu trúc sau:
 
 {
   "bankName": string | null,              // Tên ngân hàng chung nếu ảnh chỉ ghi một ngân hàng
@@ -35,31 +36,24 @@ Quy tắc:
 `.trim();
 
 /**
- * Chuyển buffer ảnh thành phần inlineData cho Gemini
- */
-function bufferToGenerativePart(buffer, mimeType) {
-  return {
-    inlineData: {
-      data: buffer.toString('base64'),
-      mimeType,
-    },
-  };
-}
-
-/**
- * Gọi Gemini để đọc & trích xuất thông tin thanh toán từ 1 ảnh
- * @param {Buffer} imageBuffer
- * @param {string} mimeType - vd 'image/jpeg', 'image/png'
+ * Gọi Gemini để đọc & trích xuất thông tin thanh toán từ Markdown hoặc ảnh gốc.
+ * @param {{ type: string, markdown?: string, buffer?: Buffer, mimeType?: string }} document
  * @returns {Promise<object>} dữ liệu đã trích xuất (đã parse JSON)
  */
-async function extractPaymentInfo(imageBuffer, mimeType) {
+async function extractPaymentInfo(document) {
   const model = genAI.getGenerativeModel({
     model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   });
 
-  const imagePart = bufferToGenerativePart(imageBuffer, mimeType);
-
-  const result = await model.generateContent([EXTRACTION_PROMPT, imagePart]);
+  const content = document.type === 'image'
+    ? {
+      inlineData: {
+        data: document.buffer.toString('base64'),
+        mimeType: document.mimeType,
+      },
+    }
+    : { text: document.markdown };
+  const result = await model.generateContent([EXTRACTION_PROMPT, content]);
   const responseText = result.response.text();
 
   const jsonText = extractJsonFromText(responseText);

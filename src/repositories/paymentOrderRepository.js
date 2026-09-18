@@ -28,6 +28,15 @@ class PaymentOrderRepository {
     return PaymentOrder.fromRow(result.rows[0]);
   }
 
+  async findByPaymentCode(paymentCode) {
+    const pool = await getPool();
+    const result = await pool.query(
+      'SELECT "PaymentOrderId" FROM "PaymentOrders" WHERE "PaymentCode" = $1 LIMIT 1',
+      [paymentCode],
+    );
+    return result.rows[0] || null;
+  }
+
   async updateStatus(orderId, status) {
     const pool = await getPool();
     const result = await pool.query(`

@@ -1,4 +1,5 @@
 const warehouseSlipService = require('../services/warehouseSlipService');
+const documentAdapter = require('../adapters/documentAdapter');
 const warehouseSlipRepository = require('../repositories/warehouseSlipRepository');
 
 class WarehouseSlipController {
@@ -13,13 +14,11 @@ class WarehouseSlipController {
   analyze = async (req, res, next) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ error: 'Vui lòng tải lên 1 file ảnh (field "file")' });
+        return res.status(400).json({ error: 'Vui lòng tải lên 1 tài liệu (field "file")' });
       }
 
-      const slip = await warehouseSlipService.analyzeWarehouseSlipImage(
-        req.file.buffer,
-        req.file.mimetype,
-      );
+      const document = await documentAdapter.convertToMarkdown(req.file);
+      const slip = await warehouseSlipService.analyzeWarehouseSlipMarkdown(document);
       const saved = await warehouseSlipRepository.create(slip, req.file.originalname);
       res.status(201).json({ ...slip, ...saved });
     } catch (error) {

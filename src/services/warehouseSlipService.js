@@ -1,6 +1,6 @@
 // backend/src/services/warehouseSlipService.js
 //
-// Service trích xuất dữ liệu đơn hàng thành "Phiếu xuất kho / Kiêm lệnh giao hàng" từ ảnh
+// Service trích xuất dữ liệu đơn hàng thành "Phiếu xuất kho / Kiêm lệnh giao hàng" từ Markdown
 // bằng Gemini, theo đúng pattern của geminiService.js đã có trong dự án.
 //
 // Cần cài: @google/generative-ai (npm install @google/generative-ai)
@@ -14,8 +14,8 @@ const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 // 1) PROMPT: yêu cầu Gemini trả JSON đúng schema, tiếng Việt, không kèm giải thích
 // -----------------------------------------------------------------------
 const WAREHOUSE_SLIP_PROMPT = `
-Bạn là hệ thống OCR + lập phiếu xuất kho của Việt Nam. Hãy đọc kỹ ảnh đơn hàng, đơn bán hàng,
-phiếu đặt hàng hoặc phiếu xuất kho được cung cấp và chuyển toàn bộ thông tin đọc được thành
+Bạn là hệ thống OCR + lập phiếu xuất kho của Việt Nam. Hãy đọc kỹ ảnh gốc hoặc nội dung Markdown đã chuyển đổi từ
+đơn hàng, đơn bán hàng, phiếu đặt hàng hoặc phiếu xuất kho và chuyển toàn bộ thông tin đọc được thành
 một phiếu xuất kho (kiêm lệnh giao hàng). Trả về DUY NHẤT một object JSON hợp lệ theo schema
 bên dưới. KHÔNG thêm markdown, không thêm giải thích, không thêm dấu backtick.
 
@@ -59,6 +59,8 @@ Schema JSON bắt buộc:
 }
 
 Quy tắc bắt buộc:
+- Tất cả trường thông tin nhà cung cấp, địa chỉ, mã số thuế, ghi chú và lưu ý chỉ được điền nếu nội dung đó thực sự xuất hiện trong tài liệu Markdown.
+  Không được dùng thông tin mặc định, không được tự điền tên công ty, địa chỉ, mã số thuế hoặc câu lưu ý có sẵn ngoài phiếu; không thấy thì trả về null.
 - ngay_lap: LẤY DUY NHẤT ngày ghi ngay dưới tiêu đề "PHIẾU XUẤT KHO" (dạng "Ngày ... Tháng ... Năm ...").
   TUYỆT ĐỐI KHÔNG lấy ngày ký nhận của người nhận/người giao hàng, và KHÔNG lấy ngày/giờ in phiếu
   ở góc dưới cùng (nếu có) — đó là các mốc thời gian khác, không phải ngày lập phiếu.
@@ -100,28 +102,56 @@ function isNonProductRow(tenSanPham) {
 }
 
 /**
- * Gọi Gemini để phân tích ảnh đơn hàng và tạo dữ liệu phiếu xuất kho.
- * @param {Buffer} imageBuffer - buffer ảnh (từ multer req.file.buffer)
- * @param {string} mimeType - ví dụ "image/png", "image/jpeg"
+ * Gọi Gemini để phân tích Markdown hoặc ảnh gốc và tạo dữ liệu phiếu xuất kho.
+ * @param {{ type: string, markdown?: string, buffer?: Buffer, mimeType?: string }} document
  * @returns {Promise<object>} dữ liệu đã parse + đã validate
  */
-async function analyzeWarehouseSlipImage(imageBuffer, mimeType) {
+async function analyzeWarehouseSlipMarkdown(document) {
   const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
+  const content = document.type === 'image'
+    ? {
+      inlineData: {
+        data: document.buffer.toString('base64'),
+        mimeType: document.mimeType,
+      },
+    }
+    : { text: document.markdown };
   const result = await model.generateContent([
     { text: WAREHOUSE_SLIP_PROMPT },
-    {
-      inlineData: {
-        data: imageBuffer.toString("base64"),
-        mimeType: mimeType || "image/jpeg",
-      },
-    },
+    content,
   ]);
 
   const rawText = result.response.text();
   const parsed = safeParseJson(rawText);
 
-  return validateAndEnrich(parsed);
+  const normalized = validateAndEnrich(parsed);
+  if (!hasWarehouseSlipValue(normalized)) {
+    const error = new Error('Không có giá trị dữ liệu để tạo phiếu xuất kho');
+    error.statusCode = 422;
+    throw error;
+  }
+
+  return normalized;
+}
+
+function hasWarehouseSlipValue(data) {
+  const hasItems = data.chi_tiet_hang_hoa.length > 0;
+  const hasHeader = [
+    data.ky_hieu,
+    data.ngay_lap,
+    data.nha_cung_cap.ten,
+    data.khach_hang.ten,
+    data.so_po,
+    data.ghi_chu,
+  ].some((value) => value !== null && value !== undefined && String(value).trim() !== '');
+  const hasTotals = [
+    data.tong_ket.cong_tien_hang,
+    data.tong_ket.tien_thue_gtgt,
+    data.tong_ket.tong_tien_thanh_toan,
+  ].some((value) => value !== null && value !== undefined);
+
+  return hasItems || hasHeader || hasTotals;
 }
 
 /**
@@ -249,7 +279,7 @@ function normalizeWarehouseSlip(data) {
     chi_tiet_hang_hoa: realItems.map((item, index) => ({
       stt: item.stt ?? index + 1,
       ma_so: item.ma_so ?? null,
-      ten_san_pham: item.ten_san_pham || "Chưa đọc được tên sản phẩm",
+      ten_san_pham: item.ten_san_pham ?? null,
       dvt: item.dvt ?? null,
       sl: Number(item.sl) || 0,
       don_gia: Number(item.don_gia) || 0,
@@ -268,7 +298,7 @@ function normalizeWarehouseSlip(data) {
 }
 
 module.exports = {
-  analyzeWarehouseSlipImage,
+  analyzeWarehouseSlipMarkdown,
   WAREHOUSE_SLIP_PROMPT,
   validateAndEnrich,
 };
