@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "functions": {
+    "src/server.js": {
+      "includeFiles": [
+        "node_modules/libarchive.js/dist/**"
+      ]
+    }
+  }
+}

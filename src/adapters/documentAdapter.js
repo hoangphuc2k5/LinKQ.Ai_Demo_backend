@@ -1,5 +1,6 @@
 const path = require('path');
 const { Worker } = require('worker_threads');
+const { DOMParser } = require('@xmldom/xmldom');
 
 let markItDownPromise;
 let pdfRuntimePromise;
@@ -144,6 +145,48 @@ async function convertBufferToMarkdown(buffer, fileExtension, originalName) {
   return { markdown: result.markdown, title: result.title || null, originalName };
 }
 
+function convertXmlToMarkdown(buffer, originalName) {
+  const document = new DOMParser().parseFromString(buffer.toString('utf8'), 'text/xml');
+  const root = document.documentElement;
+  if (!root || !root.nodeName) {
+    throw new Error('XML không có phần tử gốc hợp lệ');
+  }
+
+  const lines = [`# ${root.nodeName}`];
+  appendXmlElement(root, lines, 2, true);
+  const markdown = lines.join('\n').trim();
+  return { markdown, title: root.nodeName, originalName };
+}
+
+function appendXmlElement(element, lines, level, isRoot = false) {
+  const attributes = Array.from(element.attributes || []);
+  const childElements = Array.from(element.childNodes || []).filter((node) => node.nodeType === 1);
+  const text = Array.from(element.childNodes || [])
+    .filter((node) => node.nodeType === 3 || node.nodeType === 4)
+    .map((node) => node.nodeValue.trim())
+    .filter(Boolean)
+    .join(' ');
+
+  if (!isRoot) {
+    lines.push(`${'#'.repeat(Math.min(level, 6))} ${element.nodeName}`);
+  }
+  for (const attribute of attributes) {
+    lines.push(`- **@${attribute.name}:** ${escapeMarkdown(attribute.value)}`);
+  }
+  if (text) {
+    lines.push(`- **Giá trị:** ${escapeMarkdown(text)}`);
+  }
+  if (attributes.length || text) lines.push('');
+
+  for (const child of childElements) {
+    appendXmlElement(child, lines, level + 1);
+  }
+}
+
+function escapeMarkdown(value) {
+  return value.replace(/[\\`*_{}[\]()#+\-.!|>]/g, '\\$&');
+}
+
 function getFileExtension(file) {
   const extension = path.extname(file.originalname || '').toLowerCase();
   return extension || MIME_EXTENSION_MAP[file.mimetype] || '';
@@ -178,6 +221,22 @@ async function convertToMarkdown(file) {
     if (LIBARCHIVE_EXTENSIONS.has(fileExtension)) {
       const markdown = await convertLibarchive(file, fileExtension);
       return { markdown, title: null, fileExtension, originalName: file.originalname || null };
+    }
+
+    if (['.xml', '.rss', '.atom'].includes(fileExtension)) {
+      let convertedXml = null;
+      try {
+        convertedXml = await convertBufferToMarkdown(file.buffer, fileExtension, file.originalname);
+      } catch (cause) {
+        if (!cause.message.includes('not supported')) throw cause;
+      }
+      const document = convertedXml || convertXmlToMarkdown(file.buffer, file.originalname);
+      return {
+        markdown: document.markdown,
+        title: document.title || null,
+        fileExtension,
+        originalName: file.originalname || null,
+      };
     }
 
     const markItDown = await getMarkItDown();
