@@ -33,10 +33,15 @@ async function getMarkItDown() {
 
 async function ensurePdfRuntime() {
   if (!pdfRuntimePromise) {
-    pdfRuntimePromise = import('@napi-rs/canvas').then((canvas) => {
+    pdfRuntimePromise = Promise.all([
+      import('@napi-rs/canvas'),
+      import('pdf-parse'),
+      import('pdf-parse/worker'),
+    ]).then(([canvas, { PDFParse }, { getData }]) => {
       if (typeof globalThis.DOMMatrix === 'undefined') globalThis.DOMMatrix = canvas.DOMMatrix;
       if (typeof globalThis.Path2D === 'undefined') globalThis.Path2D = canvas.Path2D;
       if (typeof globalThis.ImageData === 'undefined') globalThis.ImageData = canvas.ImageData;
+      PDFParse.setWorker(getData());
     });
   }
   return pdfRuntimePromise;
