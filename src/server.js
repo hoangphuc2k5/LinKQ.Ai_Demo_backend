@@ -30,7 +30,6 @@ app.use('/api/ocr', ocrRouter);
 // Xử lý lỗi chung
 app.use((err, req, res, next) => {
   console.error(err);
-  if (err.retryAfterSeconds) res.set('Retry-After', String(err.retryAfterSeconds));
   res.status(err.statusCode || 500).json({ error: err.message || 'Lỗi máy chủ' });
 });
 
