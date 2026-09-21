@@ -26,7 +26,7 @@ async function readTextFromImage(file) {
   const model = genAI.getGenerativeModel({
     model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   });
-  const result = await model.generateContent([
+  const content = [
     OCR_PROMPT,
     {
       inlineData: {
@@ -34,12 +34,46 @@ async function readTextFromImage(file) {
         mimeType: file.mimetype,
       },
     },
-  ]);
+  ];
+  const result = await generateWithQuotaRetry(model, content);
 
   return {
     text: sanitizeOcrText(result.response.text()),
     fileName: file.originalname || null,
   };
+}
+
+async function generateWithQuotaRetry(model, content) {
+  try {
+    return await model.generateContent(content);
+  } catch (error) {
+    if (!isQuotaError(error)) throw error;
+
+    const retryDelayMs = getRetryDelayMs(error);
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    try {
+      return await model.generateContent(content);
+    } catch (retryError) {
+      if (isQuotaError(retryError)) {
+        retryError.statusCode = 429;
+        retryError.retryAfterSeconds = Math.ceil(getRetryDelayMs(retryError) / 1000);
+      }
+      throw retryError;
+    }
+  }
+}
+
+function isQuotaError(error) {
+  return error?.status === 429
+    || error?.statusCode === 429
+    || /429|too many requests|quota exceeded/i.test(error?.message || '');
+}
+
+function getRetryDelayMs(error) {
+  const retryDelay = error?.response?.retryDelay || error?.retryDelay;
+  const messageMatch = String(error?.message || '').match(/retry(?:Delay| in)\D+(\d+)/i);
+  const seconds = Number.parseInt(String(retryDelay || '').match(/\d+/)?.[0] || messageMatch?.[1] || '30', 10);
+  return Math.min(Math.max(seconds, 1), 120) * 1000;
 }
 
 function sanitizeOcrText(text) {
