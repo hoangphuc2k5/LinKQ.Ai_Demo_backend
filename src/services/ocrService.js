@@ -2,6 +2,14 @@ const axios = require('axios');
 
 const OCR_API_URL = process.env.OCR_API_URL;
 
+let ocrQueue = Promise.resolve();
+
+function enqueueOcrJob(job) {
+  const run = ocrQueue.then(job, job);
+  ocrQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 function validateImageFile(file) {
   if (!file || !Buffer.isBuffer(file.buffer)) {
     const error = new Error('File ảnh upload không hợp lệ');
@@ -36,34 +44,36 @@ async function readWithOcrApi(file) {
     throw error;
   }
 
-  const form = new FormData();
-  form.append(
-    'image',
-    new Blob([file.buffer], { type: file.mimetype }),
-    file.originalname || 'image',
-  );
-
-  try {
-    const response = await axios.post(OCR_API_URL, form, {
-      headers: form.getHeaders?.(),
-      timeout: 30_000,
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-    });
-
-    return {
-      text: extractText(response.data),
-      fileName: file.originalname || null,
-    };
-  } catch (cause) {
-    if (cause.statusCode) throw cause;
-
-    const error = new Error(
-      cause.response?.data?.error || cause.response?.data?.detail || 'Không thể gọi API OCR',
+  return enqueueOcrJob(async () => {
+    const form = new FormData();
+    form.append(
+      'image',
+      new Blob([file.buffer], { type: file.mimetype }),
+      file.originalname || 'image',
     );
-    error.statusCode = cause.response?.status || 502;
-    throw error;
-  }
+
+    try {
+      const response = await axios.post(OCR_API_URL, form, {
+        headers: form.getHeaders?.(),
+        timeout: 30_000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
+
+      return {
+        text: extractText(response.data),
+        fileName: file.originalname || null,
+      };
+    } catch (cause) {
+      if (cause.statusCode) throw cause;
+
+      const error = new Error(
+        cause.response?.data?.error || cause.response?.data?.detail || 'Không thể gọi API OCR',
+      );
+      error.statusCode = cause.response?.status || 502;
+      throw error;
+    }
+  });
 }
 
 async function readTextFromImage(file) {
