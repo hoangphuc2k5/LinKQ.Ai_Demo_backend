@@ -17,5 +17,6 @@ const upload = multer({
 });
 
 router.post('/read', upload.single('file'), ocrController.read);
+router.post('/captcha', upload.single('file'), ocrController.readCaptcha);
 
 module.exports = router;

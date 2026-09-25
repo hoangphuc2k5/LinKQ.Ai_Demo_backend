@@ -11,6 +11,17 @@ class OcrController {
       next(error);
     }
   };
+
+  readCaptcha = async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Vui lòng tải lên ảnh captcha (field "file")' });
+      }
+      res.json(await ocrService.readCaptchaFromImage(req.file));
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 module.exports = new OcrController();
